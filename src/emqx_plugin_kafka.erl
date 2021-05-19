@@ -18,6 +18,8 @@
 
 -include("emqx.hrl").
 
+-include_lib("brod/include/brod_int.hrl").
+
 -export([ load/1
         , unload/0
         ]).
@@ -52,6 +54,7 @@
 
 %% Called when the plugin application start
 load(Env) ->
+    brod_init([Env]),
     emqx:hook('client.connect',      {?MODULE, on_client_connect, [Env]}),
     emqx:hook('client.connack',      {?MODULE, on_client_connack, [Env]}),
     emqx:hook('client.connected',    {?MODULE, on_client_connected, [Env]}),
@@ -72,6 +75,38 @@ load(Env) ->
     emqx:hook('message.acked',       {?MODULE, on_message_acked, [Env]}),
     emqx:hook('message.dropped',     {?MODULE, on_message_dropped, [Env]}).
 
+brod_init(_Env) ->
+    % broker 代理服务器的地址
+    {ok, BootstrapBrokers} = get_bootstrap_brokers(),
+    % data points 数据流主题及策略
+    {ok, DpTopic, _, _} = get_points_topic(),
+    % device status 设备状态流主题及策略
+    {ok, DsTopic, _, _} = get_status_topic(),
+
+    ok = brod:start(),
+
+    % socket error recovery
+    ClientConfig =
+        [
+           {reconnect_cool_down_seconds, 10},
+           %% avoid api version query in older version brokers. needed with kafka 0.9.x or earlier.
+           % {query_api_version, false},
+
+           %% Auto start producer with default producer config
+           {auto_start_producers, true},
+           %%
+           {default_producer_config, []},
+
+           %% disallow
+           {allow_topic_auto_creation, false}
+        ],
+
+    ok = brod:start_client(BootstrapBrokers, brod_client_1, ClientConfig),
+    % Start a Producer on Demand
+    %ok = brod:start_producer(brod_client_1, DpTopic, _ProducerConfig = []),
+    %ok = brod:start_producer(brod_client_1, DsTopic, _ProducerConfig = []),
+    lager:info("Init brod kafka client with ~p", [BootstrapBrokers]).
+
 %%--------------------------------------------------------------------
 %% Client Lifecircle Hooks
 %%--------------------------------------------------------------------
@@ -79,6 +114,14 @@ load(Env) ->
 on_client_connect(ConnInfo = #{clientid := ClientId}, Props, _Env) ->
     io:format("Client(~s) connect, ConnInfo: ~p, Props: ~p~n",
               [ClientId, ConnInfo, Props]),
+    Json = mochijson2:encode([
+        {type, <<"connected">>},
+        {client_id, ClientId},
+        {username, Username},
+        {cluster_node, node()},
+        {ts, emqttd_time:now_ms(ConnectedAt)}
+    ]),
+    ok = produce_status(ClientId, Json),
     {ok, Props}.
 
 on_client_connack(ConnInfo = #{clientid := ClientId}, Rc, Props, _Env) ->
@@ -92,7 +135,17 @@ on_client_connected(ClientInfo = #{clientid := ClientId}, ConnInfo, _Env) ->
 
 on_client_disconnected(ClientInfo = #{clientid := ClientId}, ReasonCode, ConnInfo, _Env) ->
     io:format("Client(~s) disconnected due to ~p, ClientInfo:~n~p~n, ConnInfo:~n~p~n",
-              [ClientId, ReasonCode, ClientInfo, ConnInfo]).
+              [ClientId, ReasonCode, ClientInfo, ConnInfo]),
+    Json = mochijson2:encode([
+        {type, <<"disconnected">>},
+        {client_id, ClientId},
+        {username, Username},
+        {cluster_node, node()},
+        {reason, Reason},
+        {ts, emqttd_time:now_ms(ConnectedAt)}
+    ]),
+    ok = produce_status(ClientId, Json),
+    ok.
 
 on_client_authenticate(_ClientInfo = #{clientid := ClientId}, Result, _Env) ->
     io:format("Client(~s) authenticate, Result:~n~p~n", [ClientId, Result]),
@@ -145,8 +198,29 @@ on_session_terminated(_ClientInfo = #{clientid := ClientId}, Reason, SessInfo, _
 on_message_publish(Message = #message{topic = <<"$SYS/", _/binary>>}, _Env) ->
     {ok, Message};
 
-on_message_publish(Message, _Env) ->
+on_message_publish(Message = #message{
+          from = {ClientId, Username},
+          pktid = _PkgId,
+          qos = QoS,
+          retain = Retain,
+          dup = Dup,
+          topic = Topic,
+          payload = Payload,
+          timestamp = Timestamp}, _Env) ->
     io:format("Publish ~s~n", [emqx_message:format(Message)]),
+    Json = mochijson2:encode([
+        {type, <<"published">>},
+        {client_id, ClientId},
+        {username, Username},
+        {topic, Topic},
+        {payload, Payload},
+        {qos, QoS},
+        {dup, Dup},
+        {retain, Retain},
+        {cluster_node, node()},
+        {ts, emqttd_time:now_ms(Timestamp)}
+    ]),
+    ok = produce_points(ClientId, Json),
     {ok, Message}.
 
 on_message_dropped(#message{topic = <<"$SYS/", _/binary>>}, _By, _Reason, _Env) ->
@@ -163,6 +237,61 @@ on_message_delivered(_ClientInfo = #{clientid := ClientId}, Message, _Env) ->
 on_message_acked(_ClientInfo = #{clientid := ClientId}, Message, _Env) ->
     io:format("Message acked by client(~s): ~s~n",
               [ClientId, emqx_message:format(Message)]).
+
+produce_points(ClientId, Json) ->
+    Topic = get_points_topic(),
+    produce(Topic, ClientId, Json),
+    ok.
+
+produce_status(ClientId, Json) ->
+    Topic = get_status_topic(),
+    produce(Topic, ClientId, Json),
+    ok.
+
+produce(TopicInfo, ClientId, Json) ->
+    case TopicInfo of
+        {ok, Topic, custom, _}->
+            brod_produce(Topic, hash, ClientId, Json);
+        {ok, Topic, _, _} ->
+            brod_produce(Topic, random, ClientId, Json)
+    end.
+
+brod_produce(Topic, Partitioner, ClientId, Json) ->
+    {ok, CallRef} = brod:produce(brod_client_1, Topic, Partitioner, ClientId, list_to_binary(Json)),
+    receive
+        #brod_produce_reply{call_ref = CallRef, result = brod_produce_req_acked} -> ok
+    after 5000 ->
+        lager:error("Produce message to ~p for ~p timeout.",[Topic, ClientId])
+    end,
+    ok.
+
+%% 从配置中获取当前Kafka的初始broker配置
+get_bootstrap_brokers() ->
+    application:get_env(?APP, bootstrap_brokers).
+
+get_config_prop_list() ->
+    application:get_env(?APP, config).
+
+get_instrument_config() ->
+    {ok, Values} = get_config_prop_list(),
+    Instrument = proplists:get_value(instrument, Values),
+    {ok, Instrument}.
+
+%% 从配置中获取设备数据流主题Points的配置
+get_points_topic() ->
+    {ok, Values} = application:get_env(?APP, points),
+    get_topic(Values).
+
+%% 从配置中获取设备状态流主题Status的配置
+get_status_topic() ->
+    {ok, Values} = application:get_env(?APP, status),
+    get_topic(Values).
+
+get_topic(Values) ->
+    Topic = proplists:get_value(topic, Values),
+    PartitionStrategy = proplists:get_value(partition_strategy, Values),
+    PartitionWorkers = proplists:get_value(partition_workers, Values),
+    {ok, Topic, PartitionStrategy, PartitionWorkers}.
 
 %% Called when the plugin application stop
 unload() ->
@@ -185,4 +314,7 @@ unload() ->
     emqx:unhook('message.delivered',   {?MODULE, on_message_delivered}),
     emqx:unhook('message.acked',       {?MODULE, on_message_acked}),
     emqx:unhook('message.dropped',     {?MODULE, on_message_dropped}).
-
+    
+    % It is ok to leave brod application there.
+    brod:stop_client(brod_client_1),
+    io:format("Finished all unload works.").
