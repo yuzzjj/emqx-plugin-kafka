@@ -1,13 +1,13 @@
 %%-*- mode: erlang -*-
-%% emq_kafka config mapping
+%% emqx_plugin_kafka config mapping
 
 
-{mapping, "kafka.brokers", "emq_kafka.bootstrap_brokers", [
+{mapping, "kafka.brokers", "emqx_plugin_kafka.bootstrap_brokers", [
   {default, "127.0.0.1:9092"},
   {datatype, string}
 ]}.
 
-{translation, "emq_kafka.bootstrap_brokers", fun(Conf) ->
+{translation, "emqx_plugin_kafka.bootstrap_brokers", fun(Conf) ->
   Brokers = cuttlefish:conf_get("kafka.brokers", Conf),
   BrokerList = string:tokens(Brokers, ","),
   BrokerParser = fun(Broker) ->
@@ -18,54 +18,54 @@
   lists:map(BrokerParser, BrokerList)
   end}.
 
-{mapping, "kafka.config.instrument", "emq_kafka.config", [
+{mapping, "kafka.config.instrument", "emqx_plugin_kafka.config", [
   {default, false},
   {datatype, {enum, [true, false]}}
 ]}.
 
-{translation, "emq_kafka.config", fun(Conf) ->
+{translation, "emqx_plugin_kafka.config", fun(Conf) ->
   Instrument = cuttlefish:conf_get("kafka.config.instrument", Conf),
   [{instrument, Instrument}]
   end}.
 
-{mapping, "kafka.points.topic", "emq_kafka.points", [
+{mapping, "kafka.points.topic", "emqx_plugin_kafka.points", [
   {default, "device-data-points"},
   {datatype, string}
 ]}.
 
-{mapping, "kafka.points.partition.strategy", "emq_kafka.points", [
+{mapping, "kafka.points.partition.strategy", "emqx_plugin_kafka.points", [
   {default, "strict_round_robin"},
   {datatype, string}
 ]}.
 
-{mapping, "kafka.points.partition.workers", "emq_kafka.points", [
+{mapping, "kafka.points.partition.workers", "emqx_plugin_kafka.points", [
   {default, 8},
   {datatype, integer}
 ]}.
 
-{translation, "emq_kafka.points", fun(Conf) ->
+{translation, "emqx_plugin_kafka.points", fun(Conf) ->
   Topic = cuttlefish:conf_get("kafka.points.topic", Conf),
   PartitionStrategy = cuttlefish:conf_get("kafka.points.partition.strategy", Conf),
   PartitionWorkers = cuttlefish:conf_get("kafka.points.partition.workers", Conf),
   [{topic, list_to_binary(Topic)}, {partition_strategy, list_to_atom(PartitionStrategy)}, {partition_workers, PartitionWorkers}]
   end}.
 
-{mapping, "kafka.status.topic", "emq_kafka.status", [
+{mapping, "kafka.status.topic", "emqx_plugin_kafka.status", [
   {default, "device-data-points"},
   {datatype, string}
 ]}.
 
-{mapping, "kafka.status.partition.strategy", "emq_kafka.status", [
+{mapping, "kafka.status.partition.strategy", "emqx_plugin_kafka.status", [
   {default, "strict_round_robin"},
   {datatype, string}
 ]}.
 
-{mapping, "kafka.status.partition.workers", "emq_kafka.status", [
+{mapping, "kafka.status.partition.workers", "emqx_plugin_kafka.status", [
   {default, 8},
   {datatype, integer}
 ]}.
 
-{translation, "emq_kafka.status", fun(Conf) ->
+{translation, "emqx_plugin_kafka.status", fun(Conf) ->
   Topic = cuttlefish:conf_get("kafka.status.topic", Conf),
   PartitionStrategy = cuttlefish:conf_get("kafka.status.partition.strategy", Conf),
   PartitionWorkers = cuttlefish:conf_get("kafka.status.partition.workers", Conf),

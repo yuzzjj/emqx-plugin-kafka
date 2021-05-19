@@ -313,7 +313,7 @@ unload() ->
     emqx:unhook('message.publish',     {?MODULE, on_message_publish}),
     emqx:unhook('message.delivered',   {?MODULE, on_message_delivered}),
     emqx:unhook('message.acked',       {?MODULE, on_message_acked}),
-    emqx:unhook('message.dropped',     {?MODULE, on_message_dropped}).
+    emqx:unhook('message.dropped',     {?MODULE, on_message_dropped}),
     
     % It is ok to leave brod application there.
     brod:stop_client(brod_client_1),
