@@ -81,6 +81,7 @@ brod_init(_Env) ->
     % BootstrapBrokers =  "a01-r26-i139-170-06dbver.jd.local:9092,a01-r26-i139-157-06dbvkl.jd.local:9092,a01-r26-i139-171-06dbxfh.jd.local:9092",
     {ok, BootstrapBrokers} = get_bootstrap_brokers(),
     io:format(">>>>>>>>>kafka brokers:~p <<<<<<<<<< ~n", [BootstrapBrokers]),
+    {ok, _} = application:ensure_all_started(gproc),
     {ok, _} = application:ensure_all_started(brod),
     io:format("<<<<<<<<<<< -- after ensure_all_started  --  >>>>>>>>>>"),
     % socket error recovery
