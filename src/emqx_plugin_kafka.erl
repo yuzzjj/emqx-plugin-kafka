@@ -125,12 +125,12 @@ on_client_connected(ClientInfo=#{
         username := Username,
         peerhost := {B1, B2, B3, B4}}, ConnInfo, _Env) ->
     F = fun (X) -> case X of undefined -> <<"undefined">>; _ -> X  end end,
-    IP =  io_lib:format("~B.~B.~B.~B",[B1, B2, B3, B4]),
+    %IP =  io_lib:format("~B.~B.~B.~B",[B1, B2, B3, B4]),
     Json = jiffy:encode({[
         {type, <<"connected">>},
         {client_id, F(ClientId)},
         {username, F(Username)},
-        {ip, IP},
+        %{ip, IP},
         {cluster_node, a2b(node())},
         {timestamp, erlang:system_time(millisecond)}
     ]}),
@@ -147,7 +147,7 @@ on_client_disconnected(ClientInfo = #{
 
     F1 = fun(R) -> case is_atom(R) of true -> atom_to_binary(R, utf8); _ -> <<"normal">> end end,
     F2 = fun (X) -> case X of undefined -> <<"undefined">>; _ -> X  end end,
-    IP =  io_lib:format("~B.~B.~B.~B",[B1, B2, B3, B4]),
+    %IP =  io_lib:format("~B.~B.~B.~B",[B1, B2, B3, B4]),
 
     Json = jiffy:encode({[
         {type, <<"disconnected">>},
