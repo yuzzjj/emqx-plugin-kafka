@@ -219,7 +219,7 @@ on_message_publish(Message = #message{
            headers = #{peerhost := {B1, B2, B3, B4}, username := Username},
            from = From,
            qos = QoS,
-           flags = #{dup := Dup, retain := Retain}
+           flags = #{dup := Dup, retain := Retain},
            topic = Topic,
            payload = Payload,
            timestamp = Ts}, _Env) ->
