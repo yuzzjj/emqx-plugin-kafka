@@ -20,6 +20,8 @@
 
 -include_lib("brod/include/brod_int.hrl").
 
+-define(APP, emqx_plugin_kafka).
+
 -export([ load/1
         , unload/0
         ]).
@@ -77,11 +79,12 @@ load(Env) ->
 
 brod_init(_Env) ->
     % broker 代理服务器的地址
+    % BootstrapBrokers =  "a01-r26-i139-170-06dbver.jd.local:9092,a01-r26-i139-157-06dbvkl.jd.local:9092,a01-r26-i139-171-06dbxfh.jd.local:9092",
     {ok, BootstrapBrokers} = get_bootstrap_brokers(),
     % data points 数据流主题及策略
-    {ok, DpTopic, _, _} = get_points_topic(),
+    %{ok, DpTopic, _, _} = get_points_topic(),
     % device status 设备状态流主题及策略
-    {ok, DsTopic, _, _} = get_status_topic(),
+    %{ok, DsTopic, _, _} = get_status_topic(),
 
     ok = brod:start(),
 
@@ -98,7 +101,7 @@ brod_init(_Env) ->
            {default_producer_config, []},
 
            %% disallow
-           {allow_topic_auto_creation, false}
+           {allow_topic_auto_creation, true}
         ],
 
     ok = brod:start_client(BootstrapBrokers, brod_client_1, ClientConfig),
@@ -114,14 +117,6 @@ brod_init(_Env) ->
 on_client_connect(ConnInfo = #{clientid := ClientId}, Props, _Env) ->
     io:format("Client(~s) connect, ConnInfo: ~p, Props: ~p~n",
               [ClientId, ConnInfo, Props]),
-    Json = mochijson2:encode([
-        {type, <<"connected">>},
-        {client_id, ClientId},
-        {username, Username},
-        {cluster_node, node()},
-        {ts, emqttd_time:now_ms(ConnectedAt)}
-    ]),
-    ok = produce_status(ClientId, Json),
     {ok, Props}.
 
 on_client_connack(ConnInfo = #{clientid := ClientId}, Rc, Props, _Env) ->
@@ -129,20 +124,32 @@ on_client_connack(ConnInfo = #{clientid := ClientId}, Rc, Props, _Env) ->
               [ClientId, ConnInfo, Rc, Props]),
     {ok, Props}.
 
-on_client_connected(ClientInfo = #{clientid := ClientId}, ConnInfo, _Env) ->
+on_client_connected(ClientInfo=#{
+        clientid := ClientId,
+        username := Username}, ConnInfo, _Env) ->
+    Json = mochijson2:encode([
+        {type, <<"connected">>},
+        {client_id, ClientId},
+        {username, Username},
+        {cluster_node, a2b(node())},
+        {ts, erlang:system_time(millisecond)}
+    ]),
+    ok = produce_status(ClientId, Json),
     io:format("Client(~s) connected, ClientInfo:~n~p~n, ConnInfo:~n~p~n",
               [ClientId, ClientInfo, ConnInfo]).
 
-on_client_disconnected(ClientInfo = #{clientid := ClientId}, ReasonCode, ConnInfo, _Env) ->
+on_client_disconnected(ClientInfo = #{
+        clientid := ClientId,
+        username := Username}, ReasonCode, ConnInfo, _Env) ->
     io:format("Client(~s) disconnected due to ~p, ClientInfo:~n~p~n, ConnInfo:~n~p~n",
               [ClientId, ReasonCode, ClientInfo, ConnInfo]),
     Json = mochijson2:encode([
         {type, <<"disconnected">>},
         {client_id, ClientId},
         {username, Username},
-        {cluster_node, node()},
-        {reason, Reason},
-        {ts, emqttd_time:now_ms(ConnectedAt)}
+        {cluster_node, a2b(node())},
+        {reason, a2b(ReasonCode)},
+        {ts, erlang:system_time(millisecond)}
     ]),
     ok = produce_status(ClientId, Json),
     ok.
@@ -198,15 +205,17 @@ on_session_terminated(_ClientInfo = #{clientid := ClientId}, Reason, SessInfo, _
 on_message_publish(Message = #message{topic = <<"$SYS/", _/binary>>}, _Env) ->
     {ok, Message};
 
-on_message_publish(Message = #message{
-          from = {ClientId, Username},
-          pktid = _PkgId,
-          qos = QoS,
-          retain = Retain,
-          dup = Dup,
-          topic = Topic,
-          payload = Payload,
-          timestamp = Timestamp}, _Env) ->
+on_message_publish(Message = #{
+           clientid := ClientId,
+           username := Username,
+           from := From,
+           pktid := _PkgId,
+           qos := Qos,
+           retain := Retain,
+           dup := Dup,
+           topic := Topic,
+           payload := Payload,
+           ts := Ts}, _Env) ->
     io:format("Publish ~s~n", [emqx_message:format(Message)]),
     Json = mochijson2:encode([
         {type, <<"published">>},
@@ -214,11 +223,11 @@ on_message_publish(Message = #message{
         {username, Username},
         {topic, Topic},
         {payload, Payload},
-        {qos, QoS},
+        {qos, Qos},
         {dup, Dup},
         {retain, Retain},
-        {cluster_node, node()},
-        {ts, emqttd_time:now_ms(Timestamp)}
+        {cluster_node, a2b(node())},
+        {ts, Ts}
     ]),
     ok = produce_points(ClientId, Json),
     {ok, Message}.
@@ -240,11 +249,13 @@ on_message_acked(_ClientInfo = #{clientid := ClientId}, Message, _Env) ->
 
 produce_points(ClientId, Json) ->
     Topic = get_points_topic(),
+    %Topic = {ok, "device-data-topic", custom, undefined},
     produce(Topic, ClientId, Json),
     ok.
 
 produce_status(ClientId, Json) ->
     Topic = get_status_topic(),
+    %Topic = {ok, "device-status-topic", random, undefined},
     produce(Topic, ClientId, Json),
     ok.
 
@@ -265,7 +276,11 @@ brod_produce(Topic, Partitioner, ClientId, Json) ->
     end,
     ok.
 
+a2b(A) when is_atom(A) -> erlang:atom_to_binary(A, utf8);
+a2b(A) -> A.
+
 %% 从配置中获取当前Kafka的初始broker配置
+
 get_bootstrap_brokers() ->
     application:get_env(?APP, bootstrap_brokers).
 
