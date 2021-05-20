@@ -279,12 +279,12 @@ produce(TopicInfo, ClientId, Json) ->
 
 brod_produce(Topic, Partitioner, ClientId, Json) ->
     io:format("<<MSG>> Topic: ~p, Partitioner: ~p, ClientId:~s JSON: ~p~n", [Topic, Partitioner, ClientId, Json]),
-    %{ok, CallRef} = brod:produce(brod_client_1, Topic, Partitioner, ClientId, list_to_binary(Json)),
-    %receive
-    %    #brod_produce_reply{call_ref = CallRef, result = brod_produce_req_acked} -> ok
-    %after 5000 ->
-    %    lager:error("Produce message to ~p for ~p timeout.",[Topic, ClientId])
-    %end,
+    {ok, CallRef} = brod:produce(brod_client_1, Topic, Partitioner, ClientId, list_to_binary(Json)),
+    receive
+        #brod_produce_reply{call_ref = CallRef, result = brod_produce_req_acked} -> ok
+    after 5000 ->
+        io:format("<<ERROR>>Produce message to ~p for ~p timeout.",[Topic, ClientId])
+    end,
     ok.
 
 a2b(A) when is_atom(A) -> erlang:atom_to_binary(A, utf8);
