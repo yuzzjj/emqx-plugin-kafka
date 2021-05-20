@@ -123,13 +123,14 @@ on_client_connack(ConnInfo = #{clientid := ClientId}, Rc, Props, _Env) ->
 on_client_connected(ClientInfo=#{
         clientid := ClientId,
         username := Username}, ConnInfo, _Env) ->
-    Json = mochijson2:encode([
+    Json = jiffy:encode([
         {type, <<"connected">>},
         {client_id, ClientId},
         {username, Username},
         {cluster_node, a2b(node())},
         {ts, erlang:system_time(millisecond)}
     ]),
+    io:format("<<kafka json>>Client(~s) connected, Json: ~s" [ClientId, Json]),
     ok = produce_status(ClientId, Json),
     io:format("Client(~s) connected, ClientInfo:~n~p~n, ConnInfo:~n~p~n",
               [ClientId, ClientInfo, ConnInfo]).
@@ -139,7 +140,7 @@ on_client_disconnected(ClientInfo = #{
         username := Username}, ReasonCode, ConnInfo, _Env) ->
     io:format("Client(~s) disconnected due to ~p, ClientInfo:~n~p~n, ConnInfo:~n~p~n",
               [ClientId, ReasonCode, ClientInfo, ConnInfo]),
-    Json = mochijson2:encode([
+    Json = jiffy:encode([
         {type, <<"disconnected">>},
         {client_id, ClientId},
         {username, Username},
@@ -147,6 +148,7 @@ on_client_disconnected(ClientInfo = #{
         {reason, a2b(ReasonCode)},
         {ts, erlang:system_time(millisecond)}
     ]),
+    io:format("<<kafka json>>Client(~s) disconnected, Json: ~s" [ClientId, Json]),
     ok = produce_status(ClientId, Json),
     ok.
 
@@ -213,7 +215,7 @@ on_message_publish(Message = #{
            payload := Payload,
            ts := Ts}, _Env) ->
     io:format("Publish ~s~n", [emqx_message:format(Message)]),
-    Json = mochijson2:encode([
+    Json = jiffy:encode([
         {type, <<"published">>},
         {client_id, ClientId},
         {username, Username},
@@ -225,6 +227,7 @@ on_message_publish(Message = #{
         {cluster_node, a2b(node())},
         {ts, Ts}
     ]),
+    io:format("<<kafka json>>Client(~s) publish, Json: ~s" [ClientId, Json]),
     ok = produce_points(ClientId, Json),
     {ok, Message}.
 
