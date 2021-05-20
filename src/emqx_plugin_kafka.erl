@@ -141,8 +141,7 @@ on_client_connected(ClientInfo=#{
 
 on_client_disconnected(ClientInfo = #{
         clientid := ClientId,
-        username := Username,
-        peername := {B1, B2, B3, B4}}, ReasonCode, ConnInfo, _Env) ->
+        username := Username}, ReasonCode, ConnInfo, _Env) ->
     io:format("Client(~s) disconnected due to ~p, ClientInfo:~n~p~n, ConnInfo:~n~p~n",
               [ClientId, ReasonCode, ClientInfo, ConnInfo]),
 
@@ -154,9 +153,8 @@ on_client_disconnected(ClientInfo = #{
         {type, <<"disconnected">>},
         {client_id, F2(ClientId)},
         {username, F2(Username)},
-        {peername, IP},
         {cluster_node, a2b(node())},
-        {reason, F1(ReasonCode)},
+        {reason, a2b(ReasonCode)},
         {timestamp, erlang:system_time(millisecond)}
     ]}),
     io:format("<<kafka json>>Client(~s) disconnected, Json: ~s~n", [ClientId, Json]),
