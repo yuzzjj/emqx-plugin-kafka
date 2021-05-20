@@ -104,7 +104,7 @@ brod_init(_Env) ->
     % Start a Producer on Demand
     %ok = brod:start_producer(brod_client_1, DpTopic, _ProducerConfig = []),
     %ok = brod:start_producer(brod_client_1, DsTopic, _ProducerConfig = []),
-    io:format("---><Init brod kafka success><---").
+    io:format("---><Init brod kafka success><---~n").
 
 %%--------------------------------------------------------------------
 %% Client Lifecircle Hooks
