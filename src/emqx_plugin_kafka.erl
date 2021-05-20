@@ -231,17 +231,17 @@ on_message_publish(Message = #message{
     Json = jiffy:encode({[
         {type, <<"published">>},
         {id, I1 + I2 + I3},
-        {peerhost, io_lib:format("~B.~B.~B.~B",[B1, B2, B3, B4])}
+        {peerhost, io_lib:format("~B.~B.~B.~B",[B1, B2, B3, B4])},
         {username, F2(Username)},
         {topic, Topic},
         {payload, Payload},
-        {qos, Qos},
+        {qos, QoS},
         {dup, F1(Dup)},
         {retain, F1(Retain)},
         {cluster_node, a2b(node())},
         {timestamp, Ts}
     ]}),
-    io:format("<<kafka json>>Client(~s) publish, Json: ~s~n", [ClientId, Json]),
+    io:format("<<kafka json>>publish, Json: ~s~n", [Json]),
     ok = produce_points(ClientId, Json),
     {ok, Message}.
 
