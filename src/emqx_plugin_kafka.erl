@@ -142,13 +142,13 @@ on_client_connected(ClientInfo=#{
 on_client_disconnected(ClientInfo = #{
         clientid := ClientId,
         username := Username,
-        peername := {{B1, B2, B3, B4}, Port}}, ReasonCode, ConnInfo, _Env) ->
+        peername := {B1, B2, B3, B4}}, ReasonCode, ConnInfo, _Env) ->
     io:format("Client(~s) disconnected due to ~p, ClientInfo:~n~p~n, ConnInfo:~n~p~n",
               [ClientId, ReasonCode, ClientInfo, ConnInfo]),
 
     F1 = fun(R) -> case is_atom(R) of true -> atom_to_binary(R, utf8); _ -> <<"normal">> end end,
     F2 = fun (X) -> case X of undefined -> <<"undefined">>; _ -> X  end end,
-    IP =  io_lib:format("~B.~B.~B.~B:~B",[B1, B2, B3, B4, Port]),
+    IP =  io_lib:format("~B.~B.~B.~B",[B1, B2, B3, B4]),
 
     Json = jiffy:encode({[
         {type, <<"disconnected">>},
@@ -217,7 +217,7 @@ on_message_publish(Message = #message{topic = <<"$SYS/", _/binary>>}, _Env) ->
 on_message_publish(Message = #message{
            id = <<I1:64, I2:48, I3:16>> = _MsgId,
            headers = #{peerhost := {B1, B2, B3, B4}, username := Username},
-           from = From,
+           from = ClientId,
            qos = QoS,
            flags = #{dup := Dup, retain := Retain},
            topic = Topic,
@@ -231,6 +231,7 @@ on_message_publish(Message = #message{
     Json = jiffy:encode({[
         {type, <<"published">>},
         {id, I1 + I2 + I3},
+        {client_id, ClientId},
         {peerhost, io_lib:format("~B.~B.~B.~B",[B1, B2, B3, B4])},
         {username, F2(Username)},
         {topic, Topic},
@@ -241,7 +242,7 @@ on_message_publish(Message = #message{
         {cluster_node, a2b(node())},
         {timestamp, Ts}
     ]}),
-    io:format("<<kafka json>>publish, Json: ~s~n", [Json]),
+    io:format("<<kafka json>>ClientId(~s) publish, Json: ~s~n", [ClientId, Json]),
     ok = produce_points(ClientId, Json),
     {ok, Message}.
 
