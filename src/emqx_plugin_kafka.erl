@@ -245,13 +245,11 @@ on_message_acked(_ClientInfo = #{clientid := ClientId}, Message, _Env) ->
 
 produce_points(ClientId, Json) ->
     Topic = get_points_topic(),
-    %Topic = {ok, "device-data-topic", custom, undefined},
     produce(Topic, ClientId, Json),
     ok.
 
 produce_status(ClientId, Json) ->
     Topic = get_status_topic(),
-    %Topic = {ok, "device-status-topic", random, undefined},
     produce(Topic, ClientId, Json),
     ok.
 
@@ -264,12 +262,13 @@ produce(TopicInfo, ClientId, Json) ->
     end.
 
 brod_produce(Topic, Partitioner, ClientId, Json) ->
-    {ok, CallRef} = brod:produce(brod_client_1, Topic, Partitioner, ClientId, list_to_binary(Json)),
-    receive
-        #brod_produce_reply{call_ref = CallRef, result = brod_produce_req_acked} -> ok
-    after 5000 ->
-        lager:error("Produce message to ~p for ~p timeout.",[Topic, ClientId])
-    end,
+    io.format("<<MSG>> Topic: ~p, Partitioner: ~p, ClientId:~s JSON: ~p", [Topic, Partitioner, ClientId, Json]),
+    %{ok, CallRef} = brod:produce(brod_client_1, Topic, Partitioner, ClientId, list_to_binary(Json)),
+    %receive
+    %    #brod_produce_reply{call_ref = CallRef, result = brod_produce_req_acked} -> ok
+    %after 5000 ->
+    %    lager:error("Produce message to ~p for ~p timeout.",[Topic, ClientId])
+    %end,
     ok.
 
 a2b(A) when is_atom(A) -> erlang:atom_to_binary(A, utf8);
