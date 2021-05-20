@@ -122,13 +122,17 @@ on_client_connack(ConnInfo = #{clientid := ClientId}, Rc, Props, _Env) ->
 
 on_client_connected(ClientInfo=#{
         clientid := ClientId,
-        username := Username}, ConnInfo, _Env) ->
+        username := Username,
+        peerhost := {B1, B2, B3, B4}}, ConnInfo, _Env) ->
+    F = fun (X) -> case X of undefined -> <<"undefined">>; _ -> X  end end,
+    IP =  io_lib:format("~B.~B.~B.~B",[B1, B2, B3, B4]),
     Json = jiffy:encode({[
         {type, <<"connected">>},
-        {client_id, ClientId},
-        {username, Username},
+        {client_id, F(ClientId)},
+        {username, F(Username)},
+        {ip, IP},
         {cluster_node, a2b(node())},
-        {ts, erlang:system_time(millisecond)}
+        {timestamp, erlang:system_time(millisecond)}
     ]}),
     io:format("<<kafka json>>Client(~s) connected, Json: ~s~n", [ClientId, Json]),
     ok = produce_status(ClientId, Json),
@@ -137,16 +141,23 @@ on_client_connected(ClientInfo=#{
 
 on_client_disconnected(ClientInfo = #{
         clientid := ClientId,
-        username := Username}, ReasonCode, ConnInfo, _Env) ->
+        username := Username,
+        peername := {{B1, B2, B3, B4}, Port}}, ReasonCode, ConnInfo, _Env) ->
     io:format("Client(~s) disconnected due to ~p, ClientInfo:~n~p~n, ConnInfo:~n~p~n",
               [ClientId, ReasonCode, ClientInfo, ConnInfo]),
+
+    F1 = fun(R) -> case is_atom(R) of true -> atom_to_binary(R, utf8); _ -> <<"normal">> end end,
+    F2 = fun (X) -> case X of undefined -> <<"undefined">>; _ -> X  end end,
+    IP =  io_lib:format("~B.~B.~B.~B:~B",[B1, B2, B3, B4, Port]),
+
     Json = jiffy:encode({[
         {type, <<"disconnected">>},
-        {client_id, ClientId},
-        {username, Username},
+        {client_id, F2(ClientId)},
+        {username, F2(Username)},
+        {peername, IP},
         {cluster_node, a2b(node())},
-        {reason, a2b(ReasonCode)},
-        {ts, erlang:system_time(millisecond)}
+        {reason, F1(ReasonCode)},
+        {timestamp, erlang:system_time(millisecond)}
     ]}),
     io:format("<<kafka json>>Client(~s) disconnected, Json: ~s~n", [ClientId, Json]),
     ok = produce_status(ClientId, Json),
@@ -203,29 +214,32 @@ on_session_terminated(_ClientInfo = #{clientid := ClientId}, Reason, SessInfo, _
 on_message_publish(Message = #message{topic = <<"$SYS/", _/binary>>}, _Env) ->
     {ok, Message};
 
-on_message_publish(Message = #{
-           clientid := ClientId,
-           username := Username,
-           from := From,
-           pktid := _PkgId,
-           qos := Qos,
-           retain := Retain,
-           dup := Dup,
-           topic := Topic,
-           payload := Payload,
-           ts := Ts}, _Env) ->
+on_message_publish(Message = #message{
+           id = <<I1:64, I2:48, I3:16>> = _MsgId,
+           headers = #{peerhost := {B1, B2, B3, B4}, username := Username},
+           from = From,
+           qos = QoS,
+           flags = #{dup := Dup, retain := Retain}
+           topic = Topic,
+           payload = Payload,
+           timestamp = Ts}, _Env) ->
     io:format("Publish ~s~n", [emqx_message:format(Message)]),
+
+    F1 = fun(X) -> case X of  true ->1; _ -> 0 end end,
+    F2 = fun (X) -> case X of undefined -> <<"undefined">>; _ -> X  end end,
+
     Json = jiffy:encode({[
         {type, <<"published">>},
-        {client_id, ClientId},
-        {username, Username},
+        {id, I1 + I2 + I3},
+        {peerhost, io_lib:format("~B.~B.~B.~B",[B1, B2, B3, B4])}
+        {username, F2(Username)},
         {topic, Topic},
         {payload, Payload},
         {qos, Qos},
-        {dup, Dup},
-        {retain, Retain},
+        {dup, F1(Dup)},
+        {retain, F1(Retain)},
         {cluster_node, a2b(node())},
-        {ts, Ts}
+        {timestamp, Ts}
     ]}),
     io:format("<<kafka json>>Client(~s) publish, Json: ~s~n", [ClientId, Json]),
     ok = produce_points(ClientId, Json),
@@ -265,7 +279,7 @@ produce(TopicInfo, ClientId, Json) ->
     end.
 
 brod_produce(Topic, Partitioner, ClientId, Json) ->
-    io:format("<<MSG>> Topic: ~p, Partitioner: ~p, ClientId:~s JSON: ~p", [Topic, Partitioner, ClientId, Json]),
+    io:format("<<MSG>> Topic: ~p, Partitioner: ~p, ClientId:~s JSON: ~p~n", [Topic, Partitioner, ClientId, Json]),
     %{ok, CallRef} = brod:produce(brod_client_1, Topic, Partitioner, ClientId, list_to_binary(Json)),
     %receive
     %    #brod_produce_reply{call_ref = CallRef, result = brod_produce_req_acked} -> ok
