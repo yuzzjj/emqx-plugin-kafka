@@ -262,7 +262,7 @@ produce(TopicInfo, ClientId, Json) ->
     end.
 
 brod_produce(Topic, Partitioner, ClientId, Json) ->
-    io.format("<<MSG>> Topic: ~p, Partitioner: ~p, ClientId:~s JSON: ~p", [Topic, Partitioner, ClientId, Json]),
+    io:format("<<MSG>> Topic: ~p, Partitioner: ~p, ClientId:~s JSON: ~p", [Topic, Partitioner, ClientId, Json]),
     %{ok, CallRef} = brod:produce(brod_client_1, Topic, Partitioner, ClientId, list_to_binary(Json)),
     %receive
     %    #brod_produce_reply{call_ref = CallRef, result = brod_produce_req_acked} -> ok
