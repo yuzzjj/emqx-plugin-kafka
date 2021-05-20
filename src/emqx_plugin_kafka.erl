@@ -85,8 +85,9 @@ brod_init(_Env) ->
     %{ok, DpTopic, _, _} = get_points_topic(),
     % device status 设备状态流主题及策略
     %{ok, DsTopic, _, _} = get_status_topic(),
-
-    ok = brod:start(),
+    io:format(">>>>>>>>>kafka brokers:~s<<<<<<<<<<~n", [BootstrapBrokers]),
+    %ok = brod:start(),
+    {ok, _} = application:ensure_all_started(brod),
 
     % socket error recovery
     ClientConfig =
