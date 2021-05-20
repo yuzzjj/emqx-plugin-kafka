@@ -16,8 +16,7 @@
 
 -module(emqx_plugin_kafka).
 
--include("emqx.hrl").
-
+-include_lib("emqx/include/emqx.hrl").
 -include_lib("brod/include/brod_int.hrl").
 
 -define(APP, emqx_plugin_kafka).
@@ -81,14 +80,9 @@ brod_init(_Env) ->
     % broker 代理服务器的地址
     % BootstrapBrokers =  "a01-r26-i139-170-06dbver.jd.local:9092,a01-r26-i139-157-06dbvkl.jd.local:9092,a01-r26-i139-171-06dbxfh.jd.local:9092",
     {ok, BootstrapBrokers} = get_bootstrap_brokers(),
-    % data points 数据流主题及策略
-    %{ok, DpTopic, _, _} = get_points_topic(),
-    % device status 设备状态流主题及策略
-    %{ok, DsTopic, _, _} = get_status_topic(),
     io:format(">>>>>>>>>kafka brokers:~p <<<<<<<<<< ~n", [BootstrapBrokers]),
-    %ok = brod:start(),
     {ok, _} = application:ensure_all_started(brod),
-
+    io:format("<<<<<<<<<<< -- after ensure_all_started  --  >>>>>>>>>>"),
     % socket error recovery
     ClientConfig =
         [
