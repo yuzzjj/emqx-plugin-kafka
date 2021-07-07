@@ -233,7 +233,7 @@ on_message_publish(Message = #message{
         {peerhost, io_lib:format("~B.~B.~B.~B",[B1, B2, B3, B4])},
         {username, F2(Username)},
         {topic, Topic},
-        {payload, Payload},
+        {payload, normal(Payload)},
         {qos, QoS},
         {dup, F1(Dup)},
         {retain, F1(Retain)},
@@ -290,6 +290,9 @@ brod_produce(Topic, Partitioner, ClientId, Json) ->
 
 a2b(A) when is_atom(A) -> erlang:atom_to_binary(A, utf8);
 a2b(A) -> A.
+
+normal(B) when is_binary(B) -> erlang:binary_to_list(B);
+normal(B) -> B.
 
 %% 从配置中获取当前Kafka的初始broker配置
 
