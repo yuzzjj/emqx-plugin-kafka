@@ -291,8 +291,11 @@ brod_produce(Topic, Partitioner, ClientId, Json) ->
 a2b(A) when is_atom(A) -> erlang:atom_to_binary(A, utf8);
 a2b(A) -> A.
 
-normal(B) when is_binary(B) -> erlang:binary_to_list(B);
+normal(B) when is_binary(B) -> binary_to_hexstr(B);
 normal(B) -> B.
+
+binary_to_hexstr(Bin) ->
+  lists:flatten([io_lib:format("~2.16.0b", [X]) || X <- binary_to_list(Bin)]).
 
 %% 从配置中获取当前Kafka的初始broker配置
 
