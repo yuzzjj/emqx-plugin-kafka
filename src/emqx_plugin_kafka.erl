@@ -21,6 +21,9 @@
 
 -define(APP, emqx_plugin_kafka).
 
+-define(NUM_START,48).
+-define(CHAR_START,55).
+
 -export([ load/1
         , unload/0
         ]).
@@ -291,12 +294,20 @@ brod_produce(Topic, Partitioner, ClientId, Json) ->
 a2b(A) when is_atom(A) -> erlang:atom_to_binary(A, utf8);
 a2b(A) -> A.
 
-encode_value(Value) when is_list(Value)   -> [{schema, <<"list">>}, {val, Value}];
-encode_value(Value) when is_binary(Value) -> [{schema, <<"hex">>},  {val, binary_to_list(<<Value>>)}];
-encode_value(Value) -> [{schema, <<"origin">>}, {val, Value}].
+encode_value(Binary) when is_binary(Binary) -> [{schema, <<"hex">>}, {val, to_hex(binary_to_list(Binary))}];
+encode_value(List) -> [{schema, <<"origin">>}, {val, List}].
 
-binary_to_hexstr(Data) ->
-  lists:flatten([io_lib:format("~2.16.0B ",[X]) || <<X:8>> <= Data ]).
+to_hex(List) -> 
+  HexList = 
+      lists:map(fun(DecimalChar) ->
+          <<MostSignificantNibble:4,LeastSignificantNibble:4>> = <<DecimalChar>>,
+          [to_hex_char(MostSignificantNibble), to_hex_char(LeastSignificantNibble)]
+      end,List),
+  lists:flatten(HexList).
+
+to_hex_char(Nibble) when Nibble =< 9 -> Nibble + ?NUM_START;
+to_hex_char(Nibble) -> Nibble + ?CHAR_START.
+
 
 %% 从配置中获取当前Kafka的初始broker配置
 
