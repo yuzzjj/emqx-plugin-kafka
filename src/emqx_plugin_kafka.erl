@@ -233,7 +233,7 @@ on_message_publish(Message = #message{
         {peerhost, io_lib:format("~B.~B.~B.~B",[B1, B2, B3, B4])},
         {username, F2(Username)},
         {topic, Topic},
-        {payload, encode_value(Payload)},
+        {payload, jiffy:encode({encode_value(Payload)})},
         {qos, QoS},
         {dup, F1(Dup)},
         {retain, F1(Retain)},
@@ -291,12 +291,11 @@ brod_produce(Topic, Partitioner, ClientId, Json) ->
 a2b(A) when is_atom(A) -> erlang:atom_to_binary(A, utf8);
 a2b(A) -> A.
 
-encode_value(Value) when is_binary(Value) -> [{"schema", "hex"}, {"val", binary_to_hexstr(Value)}];
-encode_value(Value) when is_list(Value)   -> [{"schema","list"}, {"val",Value}];
-encode_value(Value) when is_string(Value) -> [{"schema", "list"}, {"val", Value}];
-encode_value(B) -> B.
+encode_value(Value) when is_binary(Value) -> [{"schema", "hex"},  {"val", binary_to_hexstr(Value)}];
+encode_value(Value) when is_list(Value)   -> [{"schema", "list"}, {"val", Value}];
+encode_value(Value) -> [{"schema", "origin"}, {"val", Value}].
 
-binary_to_hexstr(Bin) ->
+binary_to_hexstr(Data) ->
   lists:flatten([io_lib:format("~2.16.0B ",[X]) || <<X:8>> <= Data ]).
 
 %% 从配置中获取当前Kafka的初始broker配置
