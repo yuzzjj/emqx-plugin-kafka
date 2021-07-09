@@ -294,7 +294,7 @@ brod_produce(Topic, Partitioner, ClientId, Json) ->
 a2b(A) when is_atom(A) -> erlang:atom_to_binary(A, utf8);
 a2b(A) -> A.
 
-encode_value(Binary) when is_binary(Binary) -> [{schema, <<"hex">>}, {val, to_hex(binary_to_list(Binary))}];
+encode_value(Binary) when is_binary(Binary) -> [{schema, <<"hex">>}, {val, to_hex(Binary)}];
 encode_value(List) -> [{schema, <<"origin">>}, {val, List}].
 
 to_hex(List) -> 
