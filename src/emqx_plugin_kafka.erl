@@ -215,14 +215,14 @@ on_message_publish(Message = #message{topic = <<"$SYS/", _/binary>>}, _Env) ->
 
 on_message_publish(Message = #message{
            id = <<I1:64, I2:48, I3:16>> = _MsgId,
-           headers = #{peerhost := {B1, B2, B3, B4}, username := Username},
+           headers = #{peerhost := PeerHost, username := Username},
            from = ClientId,
            qos = QoS,
            flags = #{dup := Dup, retain := Retain},
            topic = Topic,
            payload = Payload,
            timestamp = Ts}, _Env) ->
-    io:format("Publish ~s~n", [emqx_message:format(Message)]),
+    %%io:format("Publish ~s~n", [emqx_message:format(Message)]),
 
     F1 = fun(X) -> case X of  true ->1; _ -> 0 end end,
     F2 = fun (X) -> case X of undefined -> <<"undefined">>; _ -> X  end end,
@@ -231,7 +231,7 @@ on_message_publish(Message = #message{
         {type, <<"published">>},
         {id, I1 + I2 + I3},
         {client_id, ClientId},
-        {peerhost, io_lib:format("~B.~B.~B.~B",[B1, B2, B3, B4])},
+        {peerhost, ntoa(PeerHost)},
         {username, F2(Username)},
         {topic, Topic},
         {payload, jiffy:encode({encode_value(Payload)})},
@@ -241,7 +241,7 @@ on_message_publish(Message = #message{
         {cluster_node, a2b(node())},
         {timestamp, Ts}
     ]}),
-    io:format("<<kafka json>>ClientId(~s) publish, Json: ~s~n", [ClientId, Json]),
+    %%io:format("<<kafka json>>ClientId(~s) publish, Json: ~s~n", [ClientId, Json]),
     ok = produce_points(ClientId, Json),
     {ok, Message}.
 
@@ -289,6 +289,11 @@ brod_produce(Topic, Partitioner, ClientId, Json) ->
     end,
     ok.
 
+ntoa({0,0,0,0,0,16#ffff,AB,CD}) ->
+    list_to_binary(inet_parse:ntoa({AB bsr 8, AB rem 256, CD bsr 8, CD rem 256}));
+ntoa(IP) ->
+    list_to_binary(inet_parse:ntoa(IP)).
+    
 a2b(A) when is_atom(A) -> erlang:atom_to_binary(A, utf8);
 a2b(A) -> A.
 
