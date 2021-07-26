@@ -128,14 +128,13 @@ on_client_connack(ConnInfo = #{clientid := ClientId}, Rc, Props, _Env) ->
 on_client_connected(ClientInfo=#{
         clientid := ClientId,
         username := Username,
-        peerhost := {B1, B2, B3, B4}}, ConnInfo, _Env) ->
+        peerhost := PeerHost}, ConnInfo, _Env) ->
     F = fun (X) -> case X of undefined -> <<"undefined">>; _ -> X  end end,
-    %IP =  io_lib:format("~B.~B.~B.~B",[B1, B2, B3, B4]),
     Json = jiffy:encode({[
         {type, <<"connected">>},
         {client_id, F(ClientId)},
         {username, F(Username)},
-        %{ip, IP},
+        {peerhost, ntoa(PeerHost)},
         {cluster_node, a2b(node())},
         {timestamp, erlang:system_time(millisecond)}
     ]}),
