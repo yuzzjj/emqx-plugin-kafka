@@ -98,9 +98,13 @@ brod_init(_Env) ->
            {default_producer_config, []},
 
            %% disallow
-           {allow_topic_auto_creation, true}
-        ],
+           {allow_topic_auto_creation, true},
+           %% using ssl 
+           {ssl, ssl_options()},
 
+           {sasl, {plain, "Pf15ceb26", "v3hwYJTBgytcQFek"}}
+        ],
+    brod_client_1 = <<"imart.jd.com">>,
     ok = brod:start_client(BootstrapBrokers, brod_client_1, ClientConfig),
     % Start a Producer on Demand
     %ok = brod:start_producer(brod_client_1, DpTopic, _ProducerConfig = []),
