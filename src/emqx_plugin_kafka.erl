@@ -99,10 +99,10 @@ brod_init(_Env) ->
 
            %% disallow
            {allow_topic_auto_creation, true},
-           {client_id, <<"imart.jd.com">>},
+           {client_id, <<"imart.jd.com">>}
            %% using sasl 
-           %% {ssl, ssl_options()},
-           %% {sasl, {plain, "Pf15ceb26", "v3hwYJTBgytcQFek"}}
+           %% ,{ssl, ssl_options()},
+           %% ,{sasl, {plain, "Pf15ceb26", "v3hwYJTBgytcQFek"}}
         ],
     ok = brod:start_client(BootstrapBrokers, brod_client_1, ClientConfig),
     % Start a Producer on Demand
